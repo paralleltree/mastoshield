@@ -7,13 +7,16 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
+	"github.com/hnakamur/ltsvlog/v3"
 	"github.com/paralleltree/mastoshield/config"
 	"github.com/paralleltree/mastoshield/rule"
 	"github.com/urfave/cli/v2"
@@ -38,7 +41,8 @@ func main() {
 		},
 	}
 	if err := app.RunContext(ctx, os.Args); err != nil {
-		log.Fatalf("%v", err)
+		ltsvlog.Logger.Err(err)
+		os.Exit(1)
 	}
 }
 
@@ -58,17 +62,26 @@ func run(ctx context.Context, ruleFilePath string) error {
 }
 
 func start(ctx context.Context, conf *config.ProxyConfig, rulesets []rule.RuleSet) error {
+	onAllowed := func(r *http.Request) {
+		reportRequest(r, "allowed")
+	}
+	onDenied := func(r *http.Request) {
+		reportRequest(r, "denied")
+	}
+	onError := func(err error) {
+		ltsvlog.Logger.Err(err)
+	}
 	upstreamUrl, err := url.Parse(conf.UpstreamEndpoint)
 	if err != nil {
 		return fmt.Errorf("parse upstream url: %w", err)
 	}
 	proxy := httputil.NewSingleHostReverseProxy(upstreamUrl)
-	addr := fmt.Sprintf(":%d", conf.ListenPort)
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", Handler(proxy, conf.DenyResponseCode, rulesets))
+	mux.HandleFunc("/", Handler(proxy, conf.DenyResponseCode, rulesets, nil, onAllowed, onDenied, onError))
+	addr := fmt.Sprintf(":%d", conf.ListenPort)
 	server := &http.Server{Addr: addr, Handler: mux}
 
-	fmt.Println("starting")
+	ltsvlog.Logger.Info().String("event", "start").Log()
 
 	go func(ctx context.Context) {
 		<-ctx.Done()
@@ -84,11 +97,46 @@ func start(ctx context.Context, conf *config.ProxyConfig, rulesets []rule.RuleSe
 			return fmt.Errorf("listen and serve: %w", err)
 		}
 	}
+	ltsvlog.Logger.Info().String("event", "shutdown").Log()
 	return nil
 }
 
-func Handler(upstream http.Handler, denyResponseCode int, rulesets []rule.RuleSet) func(http.ResponseWriter, *http.Request) {
+func reportRequest(r *http.Request, action string) {
+	ltsvlog.Logger.Info().
+		String("event", "requestHandled").
+		String("method", r.Method).
+		String("remote", resolveClientIP(r)).
+		String("path", r.URL.Path).
+		String("url", r.URL.String()).
+		String("useragent", r.UserAgent()).
+		String("action", action).
+		Log()
+}
+
+func resolveClientIP(r *http.Request) string {
+	if prior := r.Header.Get("X-Forwarded-For"); prior != "" {
+		addrs := strings.Split(prior, ",")
+		if len(addrs) > 0 {
+			return addrs[0]
+		}
+	}
+	clientIP, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return "-"
+	}
+	return clientIP
+}
+
+func Handler(
+	upstream http.Handler, denyResponseCode int, rulesets []rule.RuleSet,
+	onProcessing func(*http.Request), onAllowed func(*http.Request), onDenied func(*http.Request),
+	onError func(error),
+) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if onProcessing != nil {
+			onProcessing(r)
+		}
+
 		var readBody []byte
 		bodyFetcher := func() ([]byte, error) {
 			if readBody != nil {
@@ -117,35 +165,48 @@ func Handler(upstream http.Handler, denyResponseCode int, rulesets []rule.RuleSe
 			return true, nil
 		}
 
+		allowAction := func(w http.ResponseWriter, r *http.Request) {
+			if onAllowed != nil {
+				defer onAllowed(r)
+			}
+			upstream.ServeHTTP(w, r)
+		}
+		denyAction := func(w http.ResponseWriter, r *http.Request) {
+			if onDenied != nil {
+				defer onDenied(r)
+			}
+			w.WriteHeader(denyResponseCode)
+			w.Write([]byte{})
+		}
+		errAction := func(w http.ResponseWriter, r *http.Request, err error) {
+			if onError != nil {
+				defer onError(err)
+			}
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte{})
+		}
+
 		for _, ruleset := range rulesets {
 			matched, err := testRequest(r, ruleset)
 			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte{})
+				errAction(w, r, err)
 				return
 			}
 			if matched {
 				switch ruleset.Action {
 				case rule.ACTION_ALLOW:
-					// call callback func to logging
-					// TODO: logging
-					upstream.ServeHTTP(w, r)
+					allowAction(w, r)
 				case rule.ACTION_DENY:
-					w.WriteHeader(denyResponseCode)
-					w.Write([]byte{})
-					b, _ := bodyFetcher()
-					fmt.Printf("DENIED (%s)\n", string(b))
+					denyAction(w, r)
 				default:
-					// TODO: logging
-					w.WriteHeader(http.StatusInternalServerError)
-					w.Write([]byte{})
+					errAction(w, r, err)
 				}
 				return
 			}
 		}
 
 		// default action(allow)
-		upstream.ServeHTTP(w, r)
+		allowAction(w, r)
 	}
 }
 
