@@ -16,23 +16,38 @@ import (
 
 	"github.com/paralleltree/mastoshield/config"
 	"github.com/paralleltree/mastoshield/rule"
+	"github.com/urfave/cli/v2"
 )
 
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer cancel()
 
-	if err := run(ctx); err != nil {
-		log.Fatalf("%v\n", err)
+	app := cli.App{
+		Name: "mastoshield",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:     "rule-file",
+				Required: true,
+				Usage:    "Specify the yaml file including rules",
+			},
+		},
+		Action: func(ctx *cli.Context) error {
+			ruleFilePath := ctx.String("rule-file")
+			return run(ctx.Context, ruleFilePath)
+		},
+	}
+	if err := app.RunContext(ctx, os.Args); err != nil {
+		log.Fatalf("%v", err)
 	}
 }
 
-func run(ctx context.Context) error {
+func run(ctx context.Context, ruleFilePath string) error {
 	conf, err := config.LoadProxyConfig()
 	if err != nil {
 		return fmt.Errorf("load proxy config: %w", err)
 	}
-	rulesets, err := loadAccessControlConfig("config.yml")
+	rulesets, err := loadAccessControlConfig(ruleFilePath)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
