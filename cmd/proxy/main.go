@@ -104,12 +104,12 @@ func reportRequest(xid string, r *http.Request, action string) {
 	ltsvlog.Logger.Info().
 		String("event", "requestHandled").
 		String("xid", xid).
+		String("action", action).
 		String("method", r.Method).
-		String("remote", resolveClientIP(r)).
 		String("path", r.URL.Path).
 		String("url", r.URL.String()).
+		String("remote", resolveClientIP(r)).
 		String("useragent", r.UserAgent()).
-		String("action", action).
 		Log()
 }
 
