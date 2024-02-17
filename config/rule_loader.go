@@ -63,6 +63,7 @@ func buildRuleSets(rulesetsConfig []ruleSetConfig) ([]rule.RuleSet, error) {
 			}
 			ruleset.Matchers = append(ruleset.Matchers, matcher)
 		}
+		rulesets = append(rulesets, ruleset)
 	}
 	return rulesets, nil
 }
