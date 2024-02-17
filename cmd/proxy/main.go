@@ -165,8 +165,7 @@ func Handler(
 			if onError != nil {
 				defer onError(err)
 			}
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte{})
+			allowAction(w, r)
 		}
 
 		for _, ruleset := range rulesets {
