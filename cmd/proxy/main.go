@@ -1,11 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"net/http"
@@ -137,24 +135,9 @@ func Handler(
 			onProcessing(r)
 		}
 
-		var readBody []byte
-		bodyFetcher := func() ([]byte, error) {
-			if readBody != nil {
-				return readBody, nil
-			}
-			defer r.Body.Close()
-			rawBody, err := io.ReadAll(r.Body)
-			if err != nil {
-				return nil, err
-			}
-			readBody = rawBody
-			r.Body = io.NopCloser(bytes.NewBuffer(readBody))
-			return readBody, nil
-		}
-
-		testRequest := func(r *http.Request, ruleset rule.RuleSet) (bool, error) {
+		testRequest := func(r *rule.ProxyRequest, ruleset rule.RuleSet) (bool, error) {
 			for _, matcher := range ruleset.Matchers {
-				matched, err := matcher.Test(r, bodyFetcher)
+				matched, err := matcher.Test(r)
 				if err != nil {
 					return false, fmt.Errorf("test request: %w", err)
 				}
@@ -187,7 +170,7 @@ func Handler(
 		}
 
 		for _, ruleset := range rulesets {
-			matched, err := testRequest(r, ruleset)
+			matched, err := testRequest(rule.NewProxyRequest(r), ruleset)
 			if err != nil {
 				errAction(w, r, err)
 				return

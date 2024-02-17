@@ -3,7 +3,6 @@ package rule
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strings"
 )
 
@@ -17,12 +16,12 @@ func NewNoteContentMatcher(pattern string) (*noteContentMatcher, error) {
 	}, nil
 }
 
-func (m *noteContentMatcher) Test(req *http.Request, bodyFetcher func() ([]byte, error)) (bool, error) {
-	if !strings.HasSuffix(req.URL.Path, "/inbox") {
+func (m *noteContentMatcher) Test(req *ProxyRequest) (bool, error) {
+	if !strings.HasSuffix(req.Request.URL.Path, "/inbox") {
 		return false, nil
 	}
 
-	body, err := bodyFetcher()
+	body, err := req.Body()
 	if err != nil {
 		return false, fmt.Errorf("fetch body: %w", err)
 	}

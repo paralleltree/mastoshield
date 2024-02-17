@@ -1,7 +1,5 @@
 package rule
 
-import "net/http"
-
 type ActionType int
 
 const (
@@ -10,7 +8,7 @@ const (
 )
 
 type RuleMatcher interface {
-	Test(req *http.Request, reqBody func() ([]byte, error)) (bool, error)
+	Test(req *ProxyRequest) (bool, error)
 }
 
 type RuleSet struct {
