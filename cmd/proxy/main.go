@@ -17,6 +17,7 @@ import (
 	"github.com/hnakamur/ltsvlog/v3"
 	"github.com/paralleltree/mastoshield/config"
 	"github.com/paralleltree/mastoshield/rule"
+	"github.com/rs/xid"
 	"github.com/urfave/cli/v2"
 )
 
@@ -60,14 +61,14 @@ func run(ctx context.Context, ruleFilePath string) error {
 }
 
 func start(ctx context.Context, conf *config.ProxyConfig, rulesets []rule.RuleSet) error {
-	onAllowed := func(r *http.Request) {
-		reportRequest(r, "allowed")
+	onAllowed := func(xid string, r *http.Request) {
+		reportRequest(xid, r, "allowed")
 	}
-	onDenied := func(r *http.Request) {
-		reportRequest(r, "denied")
+	onDenied := func(xid string, r *http.Request) {
+		reportRequest(xid, r, "denied")
 	}
-	onError := func(err error) {
-		ltsvlog.Logger.Err(err)
+	onError := func(xid string, err error) {
+		ltsvlog.Logger.Err(fmt.Errorf("xid: %s: %v", xid, err))
 	}
 	upstreamUrl, err := url.Parse(conf.UpstreamEndpoint)
 	if err != nil {
@@ -99,9 +100,10 @@ func start(ctx context.Context, conf *config.ProxyConfig, rulesets []rule.RuleSe
 	return nil
 }
 
-func reportRequest(r *http.Request, action string) {
+func reportRequest(xid string, r *http.Request, action string) {
 	ltsvlog.Logger.Info().
 		String("event", "requestHandled").
+		String("xid", xid).
 		String("method", r.Method).
 		String("remote", resolveClientIP(r)).
 		String("path", r.URL.Path).
@@ -127,12 +129,14 @@ func resolveClientIP(r *http.Request) string {
 
 func Handler(
 	upstream http.Handler, denyResponseCode int, rulesets []rule.RuleSet,
-	onProcessing func(*http.Request), onAllowed func(*http.Request), onDenied func(*http.Request),
-	onError func(error),
+	onProcessing func(string, *http.Request), onAllowed func(string, *http.Request), onDenied func(string, *http.Request),
+	onError func(string, error),
 ) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		reqID := xid.New().String()
+
 		if onProcessing != nil {
-			onProcessing(r)
+			onProcessing(reqID, r)
 		}
 
 		testRequest := func(r *rule.ProxyRequest, ruleset rule.RuleSet) (bool, error) {
@@ -150,20 +154,20 @@ func Handler(
 
 		allowAction := func(w http.ResponseWriter, r *http.Request) {
 			if onAllowed != nil {
-				defer onAllowed(r)
+				defer onAllowed(reqID, r)
 			}
 			upstream.ServeHTTP(w, r)
 		}
 		denyAction := func(w http.ResponseWriter, r *http.Request) {
 			if onDenied != nil {
-				defer onDenied(r)
+				defer onDenied(reqID, r)
 			}
 			w.WriteHeader(denyResponseCode)
 			w.Write([]byte{})
 		}
 		errAction := func(w http.ResponseWriter, r *http.Request, err error) {
 			if onError != nil {
-				defer onError(err)
+				defer onError(reqID, err)
 			}
 			allowAction(w, r)
 		}

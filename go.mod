@@ -7,6 +7,7 @@ require gopkg.in/yaml.v3 v3.0.1
 require (
 	github.com/caarlos0/env/v10 v10.0.0
 	github.com/hnakamur/ltsvlog/v3 v3.2.0
+	github.com/rs/xid v1.5.0
 	github.com/urfave/cli/v2 v2.27.1
 )
 
