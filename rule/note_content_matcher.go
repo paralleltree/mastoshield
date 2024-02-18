@@ -27,18 +27,28 @@ func (m *noteContentMatcher) Test(req *ProxyRequest) (bool, error) {
 	}
 
 	payload := struct {
-		Type   string `json:"type"`
-		Object struct {
-			Type    string `json:"type"`
-			Content string `json:"content"`
-		} `json:"object"`
+		Type string `json:"type"`
 	}{}
 	if err := json.Unmarshal(body, &payload); err != nil {
 		return false, fmt.Errorf("unmarshal json: %w", err)
 	}
 
-	return payload.Type == "Create" &&
-			(payload.Object.Type == "Note" || payload.Object.Type == "Question") &&
-			strings.Contains(payload.Object.Content, m.pattern),
+	if payload.Type != "Create" {
+		return false, nil
+	}
+
+	createActivityPayload := struct {
+		Object struct {
+			Type    string `json:"type"`
+			Content string `json:"content"`
+		} `json:"object"`
+	}{}
+
+	if err := json.Unmarshal(body, &createActivityPayload); err != nil {
+		return false, fmt.Errorf("unmarshal json: %w", err)
+	}
+
+	return createActivityPayload.Object.Type == "Note" &&
+			strings.Contains(createActivityPayload.Object.Content, m.pattern),
 		nil
 }
