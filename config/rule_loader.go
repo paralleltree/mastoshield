@@ -17,6 +17,7 @@ type ruleSetConfig struct {
 type ruleConfig struct {
 	Source   string `yaml:"source"`
 	Contains string `yaml:"contains"`
+	MoreThan int    `yaml:"more_than"`
 }
 
 func LoadAccessControlConfig(f io.Reader) ([]rule.RuleSet, error) {
@@ -69,9 +70,11 @@ func buildRuleSets(rulesetsConfig []ruleSetConfig) ([]rule.RuleSet, error) {
 }
 
 func buildRuleMatcher(ruleConfig ruleConfig) (rule.RuleMatcher, error) {
-	switch ruleConfig.Source {
+	switch strings.ToLower(ruleConfig.Source) {
 	case "note_body":
 		return rule.NewNoteContentMatcher(ruleConfig.Contains)
+	case "user_agent", "useragent":
+		return rule.NewUserAgentMatcher(ruleConfig.Contains)
 	}
 	return nil, fmt.Errorf("no matcher resolved: %s", ruleConfig.Source)
 }
