@@ -77,6 +77,8 @@ func buildRuleMatcher(ruleConfig ruleConfig) (rule.RuleMatcher, error) {
 		return rule.NewMentionCountMatcher(ruleConfig.MoreThan)
 	case "user_agent", "useragent":
 		return rule.NewUserAgentMatcher(ruleConfig.Contains)
+	case "remote_ip":
+		return rule.NewRemoteIPAddressMatcher(ruleConfig.Contains) // Containedが適当な気はするけど...
 	}
 	return nil, fmt.Errorf("no matcher resolved: %s", ruleConfig.Source)
 }

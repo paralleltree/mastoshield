@@ -5,19 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/hnakamur/errstack"
 	"github.com/hnakamur/ltsvlog/v3"
 	"github.com/paralleltree/mastoshield/config"
+	"github.com/paralleltree/mastoshield/lib"
 	"github.com/paralleltree/mastoshield/rule"
 	"github.com/rs/xid"
 	"github.com/urfave/cli/v2"
@@ -35,9 +34,17 @@ func main() {
 				Required: true,
 				Usage:    "Specify the yaml file including rules",
 			},
+			&cli.BoolFlag{
+				Name:  "test-rule",
+				Usage: "Validates given rule file",
+			},
 		},
 		Action: func(ctx *cli.Context) error {
 			ruleFilePath := ctx.String("rule-file")
+			if ctx.Bool("test-rule") {
+				_, err := loadAccessControlConfig(ruleFilePath)
+				return err
+			}
 			return run(ctx.Context, ruleFilePath)
 		},
 	}
@@ -103,6 +110,10 @@ func start(ctx context.Context, conf *config.ProxyConfig, rulesets []rule.RuleSe
 }
 
 func reportRequest(xid string, r *http.Request, action string) {
+	remote, err := lib.ResolveClientIP(r)
+	if err != nil {
+		remote = "-"
+	}
 	ltsvlog.Logger.Info().
 		String("event", "requestHandled").
 		String("xid", xid).
@@ -110,23 +121,9 @@ func reportRequest(xid string, r *http.Request, action string) {
 		String("method", r.Method).
 		String("path", r.URL.Path).
 		String("url", r.URL.String()).
-		String("remote", resolveClientIP(r)).
+		String("remote", remote).
 		String("useragent", r.UserAgent()).
 		Log()
-}
-
-func resolveClientIP(r *http.Request) string {
-	if prior := r.Header.Get("X-Forwarded-For"); prior != "" {
-		addrs := strings.Split(prior, ",")
-		if len(addrs) > 0 {
-			return addrs[0]
-		}
-	}
-	clientIP, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return "-"
-	}
-	return clientIP
 }
 
 func Handler(
