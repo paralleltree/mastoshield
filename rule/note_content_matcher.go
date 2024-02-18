@@ -11,6 +11,9 @@ type noteContentMatcher struct {
 }
 
 func NewNoteContentMatcher(pattern string) (*noteContentMatcher, error) {
+	if len(pattern) == 0 {
+		return nil, fmt.Errorf("empty pattern text")
+	}
 	return &noteContentMatcher{
 		pattern: pattern,
 	}, nil
