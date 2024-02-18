@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/hnakamur/errstack"
 	"github.com/hnakamur/ltsvlog/v3"
 	"github.com/paralleltree/mastoshield/config"
 	"github.com/paralleltree/mastoshield/rule"
@@ -69,7 +70,7 @@ func start(ctx context.Context, conf *config.ProxyConfig, rulesets []rule.RuleSe
 		reportRequest(xid, r, "deny")
 	}
 	onError := func(xid string, err error) {
-		ltsvlog.Logger.Err(fmt.Errorf("xid: %s: %v", xid, err))
+		ltsvlog.Logger.Err(errstack.WithLV(err).String("xid", xid))
 	}
 	upstreamUrl, err := url.Parse(conf.UpstreamEndpoint)
 	if err != nil {
