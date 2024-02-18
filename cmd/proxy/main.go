@@ -63,10 +63,10 @@ func run(ctx context.Context, ruleFilePath string) error {
 
 func start(ctx context.Context, conf *config.ProxyConfig, rulesets []rule.RuleSet) error {
 	onAllowed := func(xid string, r *http.Request) {
-		reportRequest(xid, r, "allowed")
+		reportRequest(xid, r, "allow")
 	}
 	onDenied := func(xid string, r *http.Request) {
-		reportRequest(xid, r, "denied")
+		reportRequest(xid, r, "deny")
 	}
 	onError := func(xid string, err error) {
 		ltsvlog.Logger.Err(fmt.Errorf("xid: %s: %v", xid, err))
