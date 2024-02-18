@@ -73,6 +73,8 @@ func buildRuleMatcher(ruleConfig ruleConfig) (rule.RuleMatcher, error) {
 	switch strings.ToLower(ruleConfig.Source) {
 	case "note_body":
 		return rule.NewNoteContentMatcher(ruleConfig.Contains)
+	case "mention_count":
+		return rule.NewMentionCountMatcher(ruleConfig.MoreThan)
 	case "user_agent", "useragent":
 		return rule.NewUserAgentMatcher(ruleConfig.Contains)
 	}
