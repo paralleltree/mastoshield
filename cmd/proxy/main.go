@@ -81,7 +81,7 @@ func start(ctx context.Context, conf *config.ProxyConfig, rulesets []rule.RuleSe
 	addr := fmt.Sprintf(":%d", conf.ListenPort)
 	server := &http.Server{Addr: addr, Handler: mux}
 
-	ltsvlog.Logger.Info().String("event", "start").Log()
+	ltsvlog.Logger.Info().String("event", "start").Int("port", conf.ListenPort).String("upstream", conf.UpstreamEndpoint).Log()
 
 	go func(ctx context.Context) {
 		<-ctx.Done()
