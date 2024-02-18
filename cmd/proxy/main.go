@@ -184,7 +184,7 @@ func Handler(
 				case rule.ACTION_DENY:
 					denyAction(w, r)
 				default:
-					errAction(w, r, err)
+					errAction(w, r, fmt.Errorf("unexpected action: %v", ruleset.Action))
 				}
 				return
 			}
