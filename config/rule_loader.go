@@ -9,6 +9,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type accessControlConfig struct {
+	RuleSets []ruleSetConfig `yaml:"rulesets"`
+}
+
 type ruleSetConfig struct {
 	Action string       `yaml:"action"`
 	Rules  []ruleConfig `yaml:"rules"`
@@ -26,9 +30,7 @@ func LoadAccessControlConfig(f io.Reader) ([]rule.RuleSet, error) {
 		return nil, fmt.Errorf("read stream: %w", err)
 	}
 
-	configBody := struct {
-		RuleSets []ruleSetConfig `yaml:"rulesets"`
-	}{}
+	configBody := accessControlConfig{}
 	if err := yaml.Unmarshal(body, &configBody); err != nil {
 		return nil, fmt.Errorf("unmarshal yaml: %w", err)
 	}
