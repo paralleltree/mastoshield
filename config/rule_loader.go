@@ -19,9 +19,10 @@ type ruleSetConfig struct {
 }
 
 type ruleConfig struct {
-	Source   string `yaml:"source"`
-	Contains string `yaml:"contains"`
-	MoreThan int    `yaml:"more_than"`
+	Source     string `yaml:"source"`
+	Contains   string `yaml:"contains"`
+	StartsWith string `yaml:"starts_with"`
+	MoreThan   int    `yaml:"more_than"`
 }
 
 func LoadAccessControlConfig(f io.Reader) ([]rule.RuleSet, error) {
@@ -77,6 +78,8 @@ func buildRuleMatcher(ruleConfig ruleConfig) (rule.RuleMatcher, error) {
 		return rule.NewNoteContentMatcher(ruleConfig.Contains)
 	case "mention_count":
 		return rule.NewMentionCountMatcher(ruleConfig.MoreThan)
+	case "actor":
+		return rule.NewActorMatcher(ruleConfig.StartsWith)
 	case "user_agent", "useragent":
 		return rule.NewUserAgentMatcher(ruleConfig.Contains)
 	case "remote_ip":

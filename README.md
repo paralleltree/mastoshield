@@ -37,6 +37,7 @@ rulesに含まれる条件に全て一致した場合に、そのrulesetのactio
 |:--|:--|
 |`note_body`|投稿に`contains`で指定された文字列が含まれるか判定します。|
 |`mention_count`|投稿のメンション数が`more_than`で指定した数より多いか判定します。|
+|`actor`|オブジェクトのActorが`starts_with`で指定された文字列から始まるか判定します。|
 |`remote_ip`|リクエスト元のIPアドレスが`contains`で指定されたアドレスに含まれるか判定します。|
 |`user_agent`|リクエストのUserAgentに`contains`で指定された文字列が含まれるか判定します。|
 
